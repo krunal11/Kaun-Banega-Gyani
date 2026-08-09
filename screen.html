@@ -168,7 +168,35 @@ async function render() {
     return;
   }
 
+  if (session.state === 'INTRO_CARD') {
+    content.innerHTML = introCardHtml(session.intro_content);
+    return;
+  }
+
   content.innerHTML = `<div class="chakra"></div>`;
+}
+
+function introCardHtml(intro) {
+  if (!intro) return `<div class="chakra"></div>`;
+  if (intro.kind === 'LIFELINES') {
+    return `<div class="qno-big">LIFELINES</div>
+      <div class="opts-big fade-in" style="grid-template-columns:1fr;max-width:900px;">
+        ${(intro.items||[]).map(i => `
+          <div class="opt-big" style="text-align:left;font-size:20px;">
+            <div class="tag" style="font-size:14px;">${i.type.slice(0,2)}</div>
+            <div>
+              <div style="font-weight:800;margin-bottom:4px;">${i.type.replace('_',' ')} — unlocks at ${i.unlock_threshold} pts${i.revive_threshold?`, revives at ${i.revive_threshold} pts`:''}</div>
+              <div style="font-size:16px;color:var(--ink-dim);font-weight:400;">${i.description||''}</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+  if (intro.kind === 'ROUND') {
+    return `<div class="qno-big">ROUND ${intro.round_no}</div>
+      <div class="qtext-big fade-in">${intro.round_name}</div>
+      <div style="font-size:22px;color:var(--ink-dim);max-width:900px;text-align:center;line-height:1.5;">${intro.description||''}</div>`;
+  }
+  return `<div class="chakra"></div>`;
 }
 
 function clearOverlays() {

@@ -83,6 +83,9 @@
           <div class="row" style="margin-top:14px;">
             <button class="btn btn-gold" onclick="pushQuestion()">SHOW QUESTION</button>
             <button class="btn" onclick="openBuzzer()">OPEN BUZZER</button>
+            <button class="btn btn-outline" onclick="showRoundIntro()">SHOW ROUND RULES</button>
+            <button class="btn btn-outline" onclick="showLifelinesIntro()">SHOW LIFELINES</button>
+            <button class="btn btn-outline" onclick="dismissIntro()">DISMISS INTRO CARD</button>
             <button class="btn" onclick="openPoll()">START AUDIENCE POLL</button>
             <button class="btn" onclick="revealResult()">REVEAL ANSWER</button>
             <button class="btn" onclick="completeQuestion()">COMPLETE / NEXT</button>
@@ -146,6 +149,7 @@
         <h3 style="margin-bottom:14px;">Add Round</h3>
         <div class="field"><label>Round #</label><input id="rRoundNo" type="number"></div>
         <div class="field"><label>Name</label><input id="rName" placeholder="e.g. Round 3 — Buzzer Round"></div>
+        <div class="field"><label>Description / Rules (shown to audience via SHOW ROUND RULES)</label><textarea id="rDescription" rows="2" placeholder="e.g. Buzz in after the question is read. First team gets 100 pts if correct, -100 if wrong. Second team gets 50/-100."></textarea></div>
         <div class="field"><label>Type</label>
           <select id="rType"><option>MCQ</option><option>BUZZER</option><option>RAPID_FIRE</option><option>AUDIENCE</option><option>VISUAL</option><option>LIFELINE</option></select>
         </div>
@@ -187,7 +191,12 @@
           <div class="field" style="flex:1"><label>Points</label><input id="qbPoints" type="number" value="100"></div>
           <div class="field" style="flex:1"><label>Time limit (sec)</label><input id="qbTime" type="number" value="30"></div>
         </div>
-        <div class="field"><label>Image URL (optional, for visual round)</label><input id="qbImage"></div>
+        <div class="field"><label>Question Image (uploaded as-is — no compression, safe for projector)</label>
+          <input type="file" id="qbImageFile" accept="image/*" onchange="uploadQuestionImage()">
+          <div id="qbImageUploadStatus" style="font-size:12px;color:var(--ink-dim);margin-top:4px;"></div>
+          <img id="qbImagePreview" style="display:none;max-height:120px;margin-top:8px;border-radius:8px;border:1px solid var(--line);">
+          <input id="qbImage" placeholder="Image URL (auto-filled after upload, or paste one manually)" style="margin-top:8px;">
+        </div>
         <button class="btn btn-gold" onclick="addQuestion()">ADD QUESTION</button>
       </div>
     </div>
@@ -236,13 +245,11 @@
 
   <div class="page" id="page-lifelines" style="display:none;">
     <div class="card panel">
-      <h3 style="margin-bottom:14px;">Milestones (auto-unlock on points reached)</h3>
-      <div class="row">
-        <input id="msThreshold" type="number" placeholder="Points threshold" style="width:160px;">
-        <select id="msUnlock"><option>FIFTY_FIFTY</option><option>AUDIENCE</option><option>EXPERT</option><option>TEAM_ADVICE</option><option>REVIVE</option></select>
-        <button class="btn btn-gold" onclick="addMilestone()">ADD MILESTONE</button>
-      </div>
-      <div id="milestonesList" style="margin-top:12px;font-size:14px;color:var(--ink-dim);"></div>
+      <h3 style="margin-bottom:6px;">Lifeline Definitions</h3>
+      <div style="font-size:12px;color:var(--ink-dim);margin-bottom:14px;">One row per lifeline type. Set the points needed to unlock it, an optional points threshold to auto-revive it once used, and a description shown on the projector via SHOW LIFELINES (Control Room tab).</div>
+      <div id="lifelineDefsEditor"></div>
+      <button class="btn btn-gold" style="margin-top:10px;" onclick="saveLifelineDefinitions()">SAVE ALL</button>
+    </div>
     </div>
     <div class="card panel">
       <h3 style="margin-bottom:14px;">Team Lifeline Status</h3>
@@ -283,7 +290,7 @@ async function enterApp() {
   await loadTeams();
   await loadTeamNameSlots();
   await loadQuestionsAll();
-  await loadMilestones();
+  await loadLifelineDefinitions();
   renderControlPanel();
   renderTeamSelects();
 
@@ -309,7 +316,7 @@ function showTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
   document.getElementById('page-' + name).style.display = 'block';
-  if (name === 'lifelines') renderLifelinesGrid();
+  if (name === 'lifelines') { renderLifelinesGrid(); loadLifelineDefinitions(); }
   if (name === 'teams') loadRegistrationCards();
   if (name === 'registration') loadRegistrationSettings();
 }
@@ -355,6 +362,7 @@ async function addRound() {
     event_id: event.id,
     round_no: +document.getElementById('rRoundNo').value,
     round_name: document.getElementById('rName').value,
+    description: document.getElementById('rDescription').value,
     round_type: document.getElementById('rType').value,
     first_correct_points: +document.getElementById('rFC').value,
     first_wrong_points: +document.getElementById('rFW').value,
@@ -366,6 +374,26 @@ async function addRound() {
   const { error } = await sb.from('quiz_rounds').insert(payload);
   if (error) return toast(error.message);
   toast('Round added'); await loadRounds();
+}
+
+async function uploadQuestionImage() {
+  const fileInput = document.getElementById('qbImageFile');
+  const file = fileInput.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('qbImageUploadStatus');
+  statusEl.textContent = 'Uploading original file (no compression)…';
+
+  // NOTE: `file` is uploaded exactly as selected — no canvas re-encode, no
+  // resize step. Keep it that way or images will blur on the projector.
+  const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g,'_')}`;
+  const { error } = await sb.storage.from('question-images').upload(path, file, { upsert: false });
+  if (error) { statusEl.textContent = 'Upload failed: ' + error.message; return; }
+
+  const { data: pub } = sb.storage.from('question-images').getPublicUrl(path);
+  document.getElementById('qbImage').value = pub.publicUrl;
+  document.getElementById('qbImagePreview').src = pub.publicUrl;
+  document.getElementById('qbImagePreview').style.display = 'block';
+  statusEl.textContent = 'Uploaded ✓';
 }
 
 async function addQuestion() {
@@ -408,6 +436,20 @@ async function pushQuestion() {
   if (error) toast(error.message);
 }
 async function openBuzzer() { const { error } = await sb.rpc('open_buzzer', { p_session_id: session.id }); if (error) toast(error.message); }
+async function showRoundIntro() {
+  const roundId = document.getElementById('roundSelect').value;
+  if (!roundId) return toast('Select a round first');
+  const { error } = await sb.rpc('show_round_intro', { p_session_id: session.id, p_round_id: roundId });
+  if (error) toast(error.message);
+}
+async function showLifelinesIntro() {
+  const { error } = await sb.rpc('show_lifelines_intro', { p_session_id: session.id });
+  if (error) toast(error.message);
+}
+async function dismissIntro() {
+  const { error } = await sb.rpc('dismiss_intro', { p_session_id: session.id });
+  if (error) toast(error.message);
+}
 async function openPoll() { const { error } = await sb.rpc('open_audience_poll', { p_session_id: session.id, p_seconds: 30 }); if (error) toast(error.message); }
 async function revealResult() { const { error } = await sb.rpc('reveal_result', { p_session_id: session.id }); if (error) toast(error.message); }
 async function completeQuestion() { const { error } = await sb.rpc('complete_question', { p_session_id: session.id }); if (error) toast(error.message); }
@@ -553,15 +595,47 @@ async function saveRegistrationSettings() {
 }
 
 // ---------- Lifelines ----------
-async function loadMilestones() {
-  const { data } = await sb.from('quiz_lifeline_milestones').select('*').eq('event_id', event.id).order('points_threshold');
-  document.getElementById('milestonesList').innerHTML = (data||[]).map(m => `${m.points_threshold} pts → ${m.unlocks}`).join('<br>') || 'No milestones set.';
+const LIFELINE_TYPES = ['FIFTY_FIFTY','AUDIENCE','EXPERT','TEAM_ADVICE'];
+async function loadLifelineDefinitions() {
+  const { data } = await sb.from('quiz_lifeline_definitions').select('*').eq('event_id', event.id);
+  const byType = {};
+  (data||[]).forEach(d => byType[d.lifeline_type] = d);
+
+  document.getElementById('lifelineDefsEditor').innerHTML = LIFELINE_TYPES.map(t => {
+    const d = byType[t] || {};
+    return `
+    <div class="card panel" style="padding:14px;margin-bottom:10px;" data-type="${t}">
+      <b>${t.replace('_',' ')}</b>
+      <div class="row" style="margin-top:8px;">
+        <div class="field" style="flex:1"><label>Unlock at (points)</label><input class="def-unlock" type="number" value="${d.unlock_threshold ?? 0}"></div>
+        <div class="field" style="flex:1"><label>Auto-revive at (points, optional)</label><input class="def-revive" type="number" value="${d.revive_threshold ?? ''}"></div>
+      </div>
+      <div class="field"><label>Description (shown on projector)</label><textarea class="def-desc" rows="2">${d.description || ''}</textarea></div>
+      ${d.id ? `<button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="deleteLifelineDefinition('${d.id}')">DELETE</button>` : ''}
+    </div>`;
+  }).join('');
 }
-async function addMilestone() {
-  const payload = { event_id: event.id, points_threshold: +document.getElementById('msThreshold').value, unlocks: document.getElementById('msUnlock').value };
-  const { error } = await sb.from('quiz_lifeline_milestones').insert(payload);
+async function saveLifelineDefinitions() {
+  const cards = document.querySelectorAll('#lifelineDefsEditor [data-type]');
+  for (const card of cards) {
+    const payload = {
+      event_id: event.id,
+      lifeline_type: card.dataset.type,
+      unlock_threshold: +card.querySelector('.def-unlock').value || 0,
+      revive_threshold: card.querySelector('.def-revive').value ? +card.querySelector('.def-revive').value : null,
+      description: card.querySelector('.def-desc').value,
+    };
+    const { error } = await sb.from('quiz_lifeline_definitions').upsert(payload, { onConflict: 'event_id,lifeline_type' });
+    if (error) return toast(error.message);
+  }
+  toast('Lifeline definitions saved');
+  await loadLifelineDefinitions();
+}
+async function deleteLifelineDefinition(id) {
+  if (!confirm('Delete this lifeline definition? Teams will no longer auto-unlock it.')) return;
+  const { error } = await sb.from('quiz_lifeline_definitions').delete().eq('id', id);
   if (error) return toast(error.message);
-  toast('Milestone added'); await loadMilestones();
+  await loadLifelineDefinitions();
 }
 async function renderLifelinesGrid() {
   const { data } = await sb.from('quiz_lifelines').select('*, quiz_teams(team_name)').order('team_id');
