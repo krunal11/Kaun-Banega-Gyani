@@ -17,38 +17,55 @@
   .team-pick .opt.selected{border-color:var(--gold-bright);box-shadow:0 0 16px rgba(246,216,136,.4);background:rgba(232,189,92,.15);}
   .success-box{text-align:center;padding:40px 24px;}
   .code-big{font-family:'Cinzel',serif;font-size:34px;letter-spacing:.2em;color:var(--gold-bright);margin:14px 0;}
+  .logo-wrap{text-align:center;margin-bottom:18px;}
+  .logo-wrap img{max-width:220px;width:60%;}
+  .member-row{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px;}
+  .closed-box{text-align:center;padding:50px 24px;}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="panel fade-in" style="padding:26px;" id="card">
+    <div class="logo-wrap"><img src="shared/logo.png" alt="Kaun Banega Gyani"></div>
     <div class="eyebrow">VSD Prabhu Pooja &amp; Guru Vandan</div>
-    <h1 style="margin-bottom:6px;">Team Registration</h1>
-    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:20px;">One entry per mobile number. Once submitted, details can't be self-edited — call the enquiry number for changes.</p>
+    <h1 style="margin-bottom:6px;" id="regHeader">Team Registration</h1>
+    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:20px;" id="regDescription">Loading…</p>
 
-    <div class="field"><label>Select Team Name</label>
-      <div class="team-pick" id="teamPick"></div>
-    </div>
-    <div class="field"><label>Parent / Captain Name</label><input id="captain"></div>
-    <div class="field"><label>Mobile Number</label><input id="phone" type="tel"></div>
-    <div class="field"><label>Pathshala Name</label><input id="pathshala"></div>
-    <div class="field"><label>Members (min 5, max 7)</label>
-      <div class="names-grid" id="membersGrid"></div>
-      <div class="row" style="gap:8px;">
-        <button class="btn btn-outline" type="button" onclick="addMemberField()">+ Add Member</button>
+    <div id="formBody">
+      <div class="field"><label>Select Team Name</label>
+        <div class="team-pick" id="teamPick"></div>
       </div>
+      <div class="field"><label>Captain Name</label><input id="captain"></div>
+      <div class="field"><label>Captain Age</label><input id="captainAge" type="number" min="1" max="99"></div>
+      <div class="field"><label>Mobile Number</label><input id="phone" type="tel"></div>
+      <div class="field"><label>Pathshala Name</label><input id="pathshala"></div>
+      <div class="field"><label>Members (min 5, max 6) — age required if name is filled</label>
+        <div id="membersGrid"></div>
+      </div>
+      <button class="btn btn-gold btn-lg" style="width:100%;margin-top:10px;" onclick="submitRegistration()">SUBMIT REGISTRATION</button>
+      <div id="regError" style="color:var(--red);margin-top:10px;font-size:14px;"></div>
     </div>
-    <button class="btn btn-gold btn-lg" style="width:100%;margin-top:10px;" onclick="submitRegistration()">SUBMIT REGISTRATION</button>
-    <div id="regError" style="color:var(--red);margin-top:10px;font-size:14px;"></div>
   </div>
 </div>
 
 <script src="shared/supabase-client.js"></script>
 <script>
 let event = null, selectedTeamName = null, memberCount = 0;
+const MAX_MEMBERS = 6;
 
 window.addEventListener('DOMContentLoaded', async () => {
   event = await getActiveEvent();
+  document.getElementById('regHeader').textContent = event.reg_header || 'Team Registration';
+  document.getElementById('regDescription').textContent = event.reg_description || '';
+
+  const { data: status } = await sb.rpc('get_registration_status', { p_event_id: event.id });
+  const s = status && status[0];
+  if (!s || !s.is_open) {
+    document.getElementById('formBody').innerHTML = `<div class="closed-box"><div class="chakra" style="margin:0 auto 16px;opacity:.3;"></div>
+      <h2>${s ? s.reason : 'Registration is not available right now.'}</h2></div>`;
+    return;
+  }
+
   await loadTeamNames();
   for (let i=0;i<5;i++) addMemberField();
 });
@@ -64,13 +81,14 @@ function pickTeam(name) {
   document.getElementById('opt-' + name).classList.add('selected');
 }
 function addMemberField() {
-  if (memberCount >= 7) return toast('Maximum 7 members');
+  if (memberCount >= MAX_MEMBERS) return toast('Maximum ' + MAX_MEMBERS + ' members');
   memberCount++;
   const grid = document.getElementById('membersGrid');
-  const div = document.createElement('input');
-  div.placeholder = 'Member ' + memberCount + ' full name';
-  div.className = 'member-input';
-  grid.appendChild(div);
+  const row = document.createElement('div');
+  row.className = 'member-row';
+  row.innerHTML = `<input class="member-name-input" placeholder="Member ${memberCount} full name">
+    <input class="member-age-input" type="number" min="1" max="99" placeholder="Age">`;
+  grid.appendChild(row);
 }
 
 async function submitRegistration() {
@@ -78,16 +96,21 @@ async function submitRegistration() {
   err.textContent = '';
   if (!selectedTeamName) return err.textContent = 'Please select a team name.';
   const captain = document.getElementById('captain').value.trim();
+  const captainAge = document.getElementById('captainAge').value;
   const phone = document.getElementById('phone').value.trim();
   const pathshala = document.getElementById('pathshala').value.trim();
-  const members = [...document.querySelectorAll('.member-input')].map(i => i.value.trim()).filter(Boolean);
 
-  if (!captain || !phone) return err.textContent = 'Captain name and mobile number are required.';
+  const names = [...document.querySelectorAll('.member-name-input')].map(i => i.value.trim());
+  const ages = [...document.querySelectorAll('.member-age-input')].map(i => i.value);
+  const members = names.map((n, i) => ({ name: n, age: ages[i] ? +ages[i] : null })).filter(m => m.name);
+
+  if (!captain || !captainAge || !phone) return err.textContent = 'Captain name, captain age, and mobile number are required.';
   if (members.length < 5) return err.textContent = 'Please enter at least 5 members.';
+  if (members.some(m => !m.age)) return err.textContent = 'Age is required for every member you named.';
 
   const { data, error } = await sb.rpc('register_team', {
     p_event_id: event.id, p_team_name: selectedTeamName, p_captain_name: captain,
-    p_phone: phone, p_pathshala: pathshala, p_members: members
+    p_captain_age: +captainAge, p_phone: phone, p_pathshala: pathshala, p_members: members
   });
   if (error) { err.textContent = error.message; await loadTeamNames(); return; }
 
