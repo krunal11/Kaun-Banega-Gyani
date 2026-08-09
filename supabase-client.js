@@ -2,8 +2,16 @@
 // EDIT THESE TWO VALUES for your Supabase project
 // (Project Settings > API > Project URL / anon public key)
 // =====================================================================
-const SUPABASE_URL = 'https://dmhzhncoulmeaeicljpl.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtaHpobmNvdWxtZWFlaWNsanBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyNjk3NjAsImV4cCI6MjEwMTg0NTc2MH0.YTYiA4_cmrIqaCVU_Mb0kBuT9Ox4acFJQZEWYKPSdAs';
+const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+
+if (typeof supabase === 'undefined') {
+  document.write('<div style="font-family:sans-serif;background:#3a0d12;color:#fff;padding:16px 22px;">' +
+    '<b>Supabase library failed to load.</b> Check your internet connection / ad-blocker, or that the ' +
+    '&lt;script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"&gt; tag loaded before this file.' +
+    '</div>');
+  throw new Error('supabase-js UMD bundle not loaded — see message above');
+}
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
