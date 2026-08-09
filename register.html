@@ -39,7 +39,7 @@
       <div class="field"><label>Captain Age</label><input id="captainAge" type="number" min="1" max="99"></div>
       <div class="field"><label>Mobile Number</label><input id="phone" type="tel"></div>
       <div class="field"><label>Pathshala Name</label><input id="pathshala"></div>
-      <div class="field"><label>Members (min 5, max 6) — age required if name is filled</label>
+      <div class="field"><label>Members other than captain (min 4, max 6) — team size is 5–7 including captain. Age required if name is filled</label>
         <div id="membersGrid"></div>
       </div>
       <button class="btn btn-gold btn-lg" style="width:100%;margin-top:10px;" onclick="submitRegistration()">SUBMIT REGISTRATION</button>
@@ -67,7 +67,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   await loadTeamNames();
-  for (let i=0;i<5;i++) addMemberField();
+  for (let i=0;i<4;i++) addMemberField();
 });
 
 async function loadTeamNames() {
@@ -105,7 +105,7 @@ async function submitRegistration() {
   const members = names.map((n, i) => ({ name: n, age: ages[i] ? +ages[i] : null })).filter(m => m.name);
 
   if (!captain || !captainAge || !phone) return err.textContent = 'Captain name, captain age, and mobile number are required.';
-  if (members.length < 5) return err.textContent = 'Please enter at least 5 members.';
+  if (members.length < 4) return err.textContent = 'Please enter at least 4 members (5 total including captain).';
   if (members.some(m => !m.age)) return err.textContent = 'Age is required for every member you named.';
 
   const { data, error } = await sb.rpc('register_team', {

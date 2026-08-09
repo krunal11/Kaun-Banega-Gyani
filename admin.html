@@ -213,7 +213,7 @@
 
     <div class="card panel">
       <h3 style="margin-bottom:14px;">Submitted Registrations — Full Detail</h3>
-      <div class="grid2" id="registrationCards" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
+      <div id="registrationCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;"></div>
     </div>
   </div>
 
@@ -492,16 +492,26 @@ async function loadRegistrationCards() {
   const { data, error } = await sb.rpc('get_registrations', { p_event_id: event.id });
   if (error) { document.getElementById('registrationCards').innerHTML = error.message; return; }
   document.getElementById('registrationCards').innerHTML = (data||[]).map(r => `
-    <div class="card panel" style="padding:16px;">
-      <div class="row" style="justify-content:space-between;">
-        <b style="font-size:16px;">${r.team_name}</b><span class="pill available">${r.team_code}</span>
+    <div class="card panel" style="padding:12px;font-size:12px;">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <b style="font-size:13px;">${r.team_name}</b><span class="pill available" style="font-size:10px;padding:2px 8px;">${r.team_code}</span>
       </div>
-      <div style="font-size:13px;color:var(--ink-dim);margin:6px 0;">Pathshala: ${r.pathshala || '—'}</div>
-      <div style="font-size:13px;margin-bottom:8px;">Captain: ${r.captain_name} (age ${r.captain_age||'—'}) · ${r.phone}</div>
-      <table style="font-size:13px;"><thead><tr><th>Member</th><th>Age</th></tr></thead><tbody>
-        ${(r.members||[]).map(m => `<tr><td>${m.name}</td><td>${m.age}</td></tr>`).join('')}
-      </tbody></table>
+      <div style="color:var(--ink-dim);margin-bottom:3px;">${r.pathshala || '—'}</div>
+      <div style="margin-bottom:6px;">Captain: <b>${r.captain_name}</b> (${r.captain_age||'—'}) · ${r.phone}</div>
+      <div style="line-height:1.7;margin-bottom:8px;">
+        ${(r.members||[]).map(m => `<span class="pill" style="font-size:10px;padding:2px 8px;margin:0 3px 3px 0;display:inline-block;">${m.name} · ${m.age}</span>`).join('')}
+      </div>
+      <button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="deleteRegistration('${r.team_id}','${r.team_name}')">DELETE — allow re-submit</button>
     </div>`).join('') || '<div style="color:var(--ink-dim);">No registrations yet.</div>';
+}
+async function deleteRegistration(teamId, teamName) {
+  if (!confirm(`Delete ${teamName}'s registration? The name "${teamName}" will become available again for re-submission. This also removes their score history.`)) return;
+  const { error } = await sb.rpc('admin_delete_registration', { p_team_id: teamId });
+  if (error) return toast(error.message);
+  toast('Registration deleted — slot reopened');
+  await loadRegistrationCards();
+  await loadTeamNameSlots();
+  await loadTeams();
 }
 
 // ---------- Registration: form settings ----------
