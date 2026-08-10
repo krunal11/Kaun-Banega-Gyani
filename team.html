@@ -128,7 +128,20 @@ async function render() {
 
   if (session.state === 'QUESTION_DISPLAY') {
     content.className = '';
-    content.innerHTML = questionCardHtml() ;
+    content.innerHTML = questionCardHtml();
+    if (session.timer_end) {
+      const secs = secondsRemaining(session.timer_end);
+      content.innerHTML += `<div class="center" style="margin-top:16px;"><div class="timer-ring ${secs<=5?'urgent':''}" id="teamSimpleTimer">${secs}</div>
+        <div class="status-line">Answer verbally — admin will record who answered.</div></div>`;
+      tickSimpleTimer();
+    }
+    return;
+  }
+
+  if (session.state === 'ANSWER_SELECTED') {
+    content.className = 'center';
+    const answeringTeam = session.answering_team_id === team.id;
+    content.innerHTML = `<div class="chakra"></div><div class="status-line">${answeringTeam ? 'Your answer has been recorded — waiting for reveal.' : 'Another team\'s answer is being recorded.'}</div>`;
     return;
   }
 
@@ -205,6 +218,21 @@ function tickTeamTimer() {
     if (secs <= 0) {
       clearInterval(timerInterval);
       await sb.rpc('try_close_buzzer', { p_session_id: session.id });
+    }
+  }, 300);
+}
+
+let simpleTimerInterval = null;
+function tickSimpleTimer() {
+  clearInterval(simpleTimerInterval);
+  simpleTimerInterval = setInterval(async () => {
+    const secs = secondsRemaining(session.timer_end);
+    const el = document.getElementById('teamSimpleTimer');
+    if (el) { el.textContent = secs; el.className = 'timer-ring ' + (secs<=5?'urgent':''); }
+    else clearInterval(simpleTimerInterval);
+    if (secs <= 0) {
+      clearInterval(simpleTimerInterval);
+      await sb.rpc('try_close_simple_timer', { p_session_id: session.id });
     }
   }, 300);
 }

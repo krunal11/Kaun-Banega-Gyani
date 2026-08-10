@@ -82,7 +82,8 @@
 
           <div class="row" style="margin-top:14px;">
             <button class="btn btn-gold" onclick="pushQuestion()">SHOW QUESTION</button>
-            <button class="btn" onclick="openBuzzer()">OPEN BUZZER</button>
+            <button class="btn" id="btnOpenBuzzer" onclick="openBuzzer()">OPEN BUZZER</button>
+            <button class="btn" id="btnStartTimer" style="display:none;" onclick="startSimpleTimer()">START TIMER</button>
             <button class="btn btn-outline" onclick="showRoundIntro()">SHOW ROUND RULES</button>
             <button class="btn btn-outline" onclick="showLifelinesIntro()">SHOW LIFELINES</button>
             <button class="btn btn-outline" onclick="dismissIntro()">DISMISS INTRO CARD</button>
@@ -90,7 +91,18 @@
             <button class="btn" onclick="revealResult()">REVEAL ANSWER</button>
             <button class="btn" onclick="completeQuestion()">COMPLETE / NEXT</button>
             <button class="btn btn-danger" onclick="resetQuestion()">RESET QUESTION</button>
+            <button class="btn btn-danger" onclick="endRound()">END ROUND</button>
           </div>
+        </div>
+
+        <div class="card panel" id="simpleAnswerCard" style="display:none;">
+          <h3 style="margin-bottom:10px;">Record Verbal Answer (simple round)</h3>
+          <div class="row">
+            <select id="simpleTeam"></select>
+            <select id="simpleOption"><option>A</option><option>B</option><option>C</option><option>D</option></select>
+            <button class="btn btn-gold" onclick="recordSimpleAnswer()">SELECT — SHOW ORANGE</button>
+          </div>
+          <div style="font-size:12px;color:var(--ink-dim);margin-top:6px;">Then click REVEAL ANSWER above to grade it and turn it green/red on screen.</div>
         </div>
 
         <div class="card panel" id="answeringCard" style="display:none;">
@@ -102,12 +114,12 @@
           </div>
         </div>
 
-        <div class="card panel">
+        <div class="card panel" id="buzzerOrderCard">
           <h3 style="margin-bottom:10px;">Buzzer Order</h3>
           <div id="buzzerOrderList" style="color:var(--ink-dim);font-size:14px;">No buzzes yet.</div>
         </div>
 
-        <div class="card panel">
+        <div class="card panel" id="rapidFireCard">
           <h3 style="margin-bottom:10px;">Rapid Fire (mark per team, per question)</h3>
           <div class="row" style="margin-bottom:10px;">
             <select id="rfTeam"></select>
@@ -146,7 +158,10 @@
   <div class="page" id="page-questions" style="display:none;">
     <div class="grid2">
       <div class="card panel">
-        <h3 style="margin-bottom:14px;">Add Round</h3>
+        <div class="row" style="justify-content:space-between;">
+          <h3 id="roundFormTitle" style="margin-bottom:14px;">Add Round</h3>
+          <select id="editRoundPicker" onchange="loadRoundForEdit()" style="width:auto;"><option value="">— Edit existing round —</option></select>
+        </div>
         <div class="field"><label>Round #</label><input id="rRoundNo" type="number"></div>
         <div class="field"><label>Name</label><input id="rName" placeholder="e.g. Round 3 — Buzzer Round"></div>
         <div class="field"><label>Description / Rules (shown to audience via SHOW ROUND RULES)</label><textarea id="rDescription" rows="2" placeholder="e.g. Buzz in after the question is read. First team gets 100 pts if correct, -100 if wrong. Second team gets 50/-100."></textarea></div>
@@ -163,11 +178,18 @@
           <div class="field" style="flex:1"><label>Buzzer window (sec)</label><input id="rWindow" type="number" value="30"></div>
           <div class="field" style="flex:1"><label>Rapid fire points</label><input id="rRF" type="number" value="100"></div>
         </div>
-        <button class="btn btn-gold" onclick="addRound()">ADD ROUND</button>
+        <div class="row" style="margin-bottom:14px;">
+          <label style="margin:0;"><input type="checkbox" id="rHasBuzzer" style="width:auto;" checked> Uses buzzer</label>
+          <label style="margin:0;"><input type="checkbox" id="rHasRapidFire" style="width:auto;"> Uses rapid fire</label>
+          <span style="font-size:12px;color:var(--ink-dim);">(Leave both unchecked for a simple round — show question, run the time limit, score manually)</span>
+        </div>
+        <button class="btn btn-gold" id="roundSaveBtn" onclick="addRound()">ADD ROUND</button>
+        <button class="btn btn-danger" id="roundDeleteBtn" style="display:none;" onclick="deleteRound()">DELETE ROUND</button>
+        <button class="btn btn-outline" id="roundCancelBtn" style="display:none;" onclick="cancelRoundEdit()">CANCEL EDIT</button>
       </div>
 
       <div class="card panel">
-        <h3 style="margin-bottom:14px;">Add Question</h3>
+        <h3 id="questionFormTitle" style="margin-bottom:14px;">Add Question</h3>
         <div class="field"><label>Round</label><select id="qbRound"></select></div>
         <div class="row">
           <div class="field" style="flex:1"><label>Question #</label><input id="qbNo" type="number"></div>
@@ -197,13 +219,14 @@
           <img id="qbImagePreview" style="display:none;max-height:120px;margin-top:8px;border-radius:8px;border:1px solid var(--line);">
           <input id="qbImage" placeholder="Image URL (auto-filled after upload, or paste one manually)" style="margin-top:8px;">
         </div>
-        <button class="btn btn-gold" onclick="addQuestion()">ADD QUESTION</button>
+        <button class="btn btn-gold" id="questionSaveBtn" onclick="addQuestion()">ADD QUESTION</button>
+        <button class="btn btn-outline" id="questionCancelBtn" style="display:none;" onclick="cancelQuestionEdit()">CANCEL EDIT</button>
       </div>
     </div>
 
     <div class="card panel">
       <h3 style="margin-bottom:10px;">All Questions</h3>
-      <table><thead><tr><th>Round</th><th>#</th><th>Question</th><th>Type</th><th>Correct</th><th>Pts</th></tr></thead><tbody id="questionsTable"></tbody></table>
+      <table><thead><tr><th>Round</th><th>#</th><th>Question</th><th>Type</th><th>Correct</th><th>Pts</th><th></th></tr></thead><tbody id="questionsTable"></tbody></table>
     </div>
   </div>
 
@@ -293,6 +316,7 @@ async function enterApp() {
   await loadLifelineDefinitions();
   renderControlPanel();
   renderTeamSelects();
+  updateRoundModeButtons();
 
   sb.channel('admin-session')
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'quiz_session', filter: `id=eq.${session.id}` },
@@ -322,12 +346,34 @@ function showTab(name) {
 }
 
 // ---------- Rounds & Questions ----------
+let editingRoundId = null, editingQuestionId = null;
+
 async function loadRounds() {
   const { data } = await sb.from('quiz_rounds').select('*').eq('event_id', event.id).order('round_no');
   rounds = data || [];
   const sel = document.getElementById('roundSelect'); sel.innerHTML = rounds.map(r => `<option value="${r.id}">R${r.round_no} — ${r.round_name}</option>`).join('');
   const qbSel = document.getElementById('qbRound'); qbSel.innerHTML = rounds.map(r => `<option value="${r.id}">R${r.round_no} — ${r.round_name}</option>`).join('');
-  if (rounds.length) await loadQuestionsForRound();
+  const editSel = document.getElementById('editRoundPicker');
+  editSel.innerHTML = `<option value="">— Edit existing round —</option>` + rounds.map(r => `<option value="${r.id}">R${r.round_no} — ${r.round_name}</option>`).join('');
+  sel.onchange = () => { loadQuestionsForRound(); updateRoundModeButtons(); };
+  if (rounds.length) { await loadQuestionsForRound(); updateRoundModeButtons(); }
+}
+
+function currentRound() {
+  return rounds.find(r => r.id === document.getElementById('roundSelect').value);
+}
+
+// Show/hide buzzer vs. simple-timer vs. rapid-fire controls based on the
+// SELECTED round's flags (not the question's — a round is one or the other).
+function updateRoundModeButtons() {
+  const r = currentRound();
+  const hasBuzzer = r ? r.has_buzzer : true;
+  const hasRapidFire = r ? r.has_rapid_fire : false;
+  document.getElementById('btnOpenBuzzer').style.display = hasBuzzer ? '' : 'none';
+  document.getElementById('btnStartTimer').style.display = hasBuzzer ? 'none' : '';
+  document.getElementById('buzzerOrderCard').style.display = hasBuzzer ? '' : 'none';
+  document.getElementById('rapidFireCard').style.display = hasRapidFire ? '' : 'none';
+  document.getElementById('simpleAnswerCard').style.display = (!hasBuzzer && !hasRapidFire) ? '' : 'none';
 }
 
 async function loadQuestionsForRound() {
@@ -353,10 +399,45 @@ async function loadQuestionsAll() {
   const { data } = await sb.from('quiz_questions').select('*, quiz_rounds(round_no,round_name)').order('question_no');
   questions = data || [];
   document.getElementById('questionsTable').innerHTML = questions.map(q => `
-    <tr><td>R${q.quiz_rounds?.round_no}</td><td>${q.question_no}</td><td>${q.question.slice(0,60)}</td><td>${q.question_type}</td><td>${q.correct_option||'—'}</td><td>${q.points}</td></tr>
+    <tr><td>R${q.quiz_rounds?.round_no}</td><td>${q.question_no}</td><td>${q.question.slice(0,60)}</td><td>${q.question_type}</td><td>${q.correct_option||'—'}</td><td>${q.points}</td>
+    <td><a href="#" onclick="event.preventDefault();editQuestion('${q.id}')">edit</a> ·
+        <a href="#" onclick="event.preventDefault();deleteQuestion('${q.id}')" style="color:var(--red)">delete</a></td></tr>
   `).join('');
 }
 
+function fillRoundForm(r) {
+  document.getElementById('rRoundNo').value = r.round_no;
+  document.getElementById('rName').value = r.round_name;
+  document.getElementById('rDescription').value = r.description || '';
+  document.getElementById('rType').value = r.round_type;
+  document.getElementById('rFC').value = r.first_correct_points;
+  document.getElementById('rFW').value = r.first_wrong_points;
+  document.getElementById('rSC').value = r.second_correct_points;
+  document.getElementById('rSW').value = r.second_wrong_points;
+  document.getElementById('rWindow').value = r.buzzer_window_seconds;
+  document.getElementById('rRF').value = r.rapid_fire_points;
+  document.getElementById('rHasBuzzer').checked = r.has_buzzer;
+  document.getElementById('rHasRapidFire').checked = r.has_rapid_fire;
+}
+function loadRoundForEdit() {
+  const id = document.getElementById('editRoundPicker').value;
+  if (!id) return cancelRoundEdit();
+  editingRoundId = id;
+  fillRoundForm(rounds.find(r => r.id === id));
+  document.getElementById('roundFormTitle').textContent = 'Edit Round';
+  document.getElementById('roundSaveBtn').textContent = 'UPDATE ROUND';
+  document.getElementById('roundDeleteBtn').style.display = '';
+  document.getElementById('roundCancelBtn').style.display = '';
+}
+function cancelRoundEdit() {
+  editingRoundId = null;
+  document.getElementById('editRoundPicker').value = '';
+  document.getElementById('roundFormTitle').textContent = 'Add Round';
+  document.getElementById('roundSaveBtn').textContent = 'ADD ROUND';
+  document.getElementById('roundDeleteBtn').style.display = 'none';
+  document.getElementById('roundCancelBtn').style.display = 'none';
+  ['rRoundNo','rName','rDescription'].forEach(id => document.getElementById(id).value = '');
+}
 async function addRound() {
   const payload = {
     event_id: event.id,
@@ -370,10 +451,26 @@ async function addRound() {
     second_wrong_points: +document.getElementById('rSW').value,
     buzzer_window_seconds: +document.getElementById('rWindow').value,
     rapid_fire_points: +document.getElementById('rRF').value,
+    has_buzzer: document.getElementById('rHasBuzzer').checked,
+    has_rapid_fire: document.getElementById('rHasRapidFire').checked,
   };
-  const { error } = await sb.from('quiz_rounds').insert(payload);
+  const { error } = editingRoundId
+    ? await sb.from('quiz_rounds').update(payload).eq('id', editingRoundId)
+    : await sb.from('quiz_rounds').insert(payload);
   if (error) return toast(error.message);
-  toast('Round added'); await loadRounds();
+  toast(editingRoundId ? 'Round updated' : 'Round added');
+  cancelRoundEdit();
+  await loadRounds();
+}
+async function deleteRound() {
+  if (!editingRoundId) return;
+  if (!confirm('Delete this round and ALL its questions? This cannot be undone.')) return;
+  const { error } = await sb.from('quiz_rounds').delete().eq('id', editingRoundId);
+  if (error) return toast(error.message);
+  toast('Round deleted');
+  cancelRoundEdit();
+  await loadRounds();
+  await loadQuestionsAll();
 }
 
 async function uploadQuestionImage() {
@@ -396,6 +493,45 @@ async function uploadQuestionImage() {
   statusEl.textContent = 'Uploaded ✓';
 }
 
+function editQuestion(id) {
+  const q = questions.find(x => x.id === id);
+  if (!q) return;
+  editingQuestionId = id;
+  document.getElementById('qbRound').value = q.round_id;
+  document.getElementById('qbNo').value = q.question_no;
+  document.getElementById('qbType').value = q.question_type;
+  document.getElementById('qbQuestion').value = q.question;
+  document.getElementById('qbA').value = q.option_a || '';
+  document.getElementById('qbB').value = q.option_b || '';
+  document.getElementById('qbC').value = q.option_c || '';
+  document.getElementById('qbD').value = q.option_d || '';
+  document.getElementById('qbCorrect').value = q.correct_option || 'A';
+  document.getElementById('qbPoints').value = q.points;
+  document.getElementById('qbTime').value = q.time_limit;
+  document.getElementById('qbImage').value = q.image_url || '';
+  document.getElementById('qbImagePreview').style.display = q.image_url ? 'block' : 'none';
+  if (q.image_url) document.getElementById('qbImagePreview').src = q.image_url;
+  document.getElementById('questionFormTitle').textContent = 'Edit Question';
+  document.getElementById('questionSaveBtn').textContent = 'UPDATE QUESTION';
+  document.getElementById('questionCancelBtn').style.display = '';
+  document.getElementById('questionFormTitle').scrollIntoView({ behavior: 'smooth' });
+}
+function cancelQuestionEdit() {
+  editingQuestionId = null;
+  ['qbNo','qbQuestion','qbA','qbB','qbC','qbD','qbImage'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('qbImagePreview').style.display = 'none';
+  document.getElementById('questionFormTitle').textContent = 'Add Question';
+  document.getElementById('questionSaveBtn').textContent = 'ADD QUESTION';
+  document.getElementById('questionCancelBtn').style.display = 'none';
+}
+async function deleteQuestion(id) {
+  if (!confirm('Delete this question?')) return;
+  const { error } = await sb.from('quiz_questions').delete().eq('id', id);
+  if (error) return toast(error.message);
+  toast('Question deleted');
+  await loadQuestionsAll(); await loadQuestionsForRound();
+}
+
 async function addQuestion() {
   const payload = {
     round_id: document.getElementById('qbRound').value,
@@ -411,9 +547,13 @@ async function addQuestion() {
     question_type: document.getElementById('qbType').value,
     image_url: document.getElementById('qbImage').value || null,
   };
-  const { error } = await sb.from('quiz_questions').insert(payload);
+  const { error } = editingQuestionId
+    ? await sb.from('quiz_questions').update(payload).eq('id', editingQuestionId)
+    : await sb.from('quiz_questions').insert(payload);
   if (error) return toast(error.message);
-  toast('Question added'); await loadQuestionsAll(); await loadQuestionsForRound();
+  toast(editingQuestionId ? 'Question updated' : 'Question added');
+  cancelQuestionEdit();
+  await loadQuestionsAll(); await loadQuestionsForRound();
 }
 
 // ---------- Live control ----------
@@ -436,6 +576,21 @@ async function pushQuestion() {
   if (error) toast(error.message);
 }
 async function openBuzzer() { const { error } = await sb.rpc('open_buzzer', { p_session_id: session.id }); if (error) toast(error.message); }
+async function startSimpleTimer() { const { error } = await sb.rpc('start_simple_timer', { p_session_id: session.id }); if (error) toast(error.message); }
+async function recordSimpleAnswer() {
+  const teamId = document.getElementById('simpleTeam').value;
+  const option = document.getElementById('simpleOption').value;
+  const { error } = await sb.rpc('record_simple_answer', { p_session_id: session.id, p_team_id: teamId, p_option: option });
+  if (error) toast(error.message);
+}
+async function endRound() {
+  const roundId = document.getElementById('roundSelect').value;
+  if (!roundId) return toast('Select a round first');
+  const r = currentRound();
+  if (!confirm(`End "${r?.round_name}" and move to the next round?`)) return;
+  const { error } = await sb.rpc('end_round_and_advance', { p_session_id: session.id, p_ending_round_id: roundId });
+  if (error) toast(error.message); else { toast('Round ended'); await loadRounds(); }
+}
 async function showRoundIntro() {
   const roundId = document.getElementById('roundSelect').value;
   if (!roundId) return toast('Select a round first');
@@ -484,7 +639,7 @@ function renderScoreboard() {
 }
 function renderTeamSelects() {
   const opts = teams.map(t => `<option value="${t.id}">${t.team_name}</option>`).join('');
-  ['adjTeam','rfTeam'].forEach(id => document.getElementById(id).innerHTML = opts);
+  ['adjTeam','rfTeam','simpleTeam'].forEach(id => document.getElementById(id).innerHTML = opts);
 }
 async function adjustScore(delta) {
   const teamId = document.getElementById('adjTeam').value;
