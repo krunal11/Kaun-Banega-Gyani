@@ -146,6 +146,7 @@ h1,h2,h3,.display{
 }
 
 input,select,textarea{
+  color-scheme: dark;
   font-family:'Poppins',sans-serif;
   background:rgba(255,255,255,0.05);
   border:1px solid var(--line);
@@ -155,6 +156,7 @@ input,select,textarea{
   font-size:15px;
   width:100%;
 }
+select option{background:var(--bg-1);color:var(--ink);}
 input::placeholder{color:var(--ink-dim);}
 
 .toast{
