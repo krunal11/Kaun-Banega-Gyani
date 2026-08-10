@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>VSD Quiz — Audience Poll</title>
 <link rel="stylesheet" href="shared/theme.css">
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // jsdelivr is primary; if it's blocked/unreachable, synchronously fall
+  // back to unpkg before the parser continues to the next script tag.
+  if (typeof supabase === 'undefined') {
+    document.write('<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"><\/script>');
+  }
+</script>
 <style>
   body{display:flex;flex-direction:column;min-height:100vh;}
   .wrap{flex:1;display:flex;flex-direction:column;padding:20px;max-width:520px;margin:0 auto;width:100%;justify-content:center;gap:18px;}
@@ -19,6 +26,7 @@
 </head>
 <body>
 <div class="wrap" id="app">
+  <img src="shared/logo.png" alt="logo" style="height:44px;margin-bottom:14px;">
   <div class="panel pop-in" style="padding:26px;" id="card">
     <div class="eyebrow center">VSD Quiz · Audience Poll</div>
     <div class="chakra" style="margin:24px auto;"></div>

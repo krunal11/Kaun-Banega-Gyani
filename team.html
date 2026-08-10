@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>VSD Quiz — Team</title>
 <link rel="stylesheet" href="shared/theme.css">
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // jsdelivr is primary; if it's blocked/unreachable, synchronously fall
+  // back to unpkg before the parser continues to the next script tag.
+  if (typeof supabase === 'undefined') {
+    document.write('<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"><\/script>');
+  }
+</script>
 <style>
   body{display:flex;flex-direction:column;min-height:100vh;}
   .wrap{flex:1;display:flex;flex-direction:column;padding:20px;max-width:520px;margin:0 auto;width:100%;}
@@ -45,7 +52,10 @@
 
   <div id="mainBox" style="display:none;flex:1;flex-direction:column;">
     <div class="topbar">
-      <div class="team-name" id="teamNameEl">—</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="shared/logo.png" alt="logo" style="height:38px;">
+        <div class="team-name" id="teamNameEl">—</div>
+      </div>
       <div class="badge" id="scoreBadge">0 PTS</div>
     </div>
     <div id="content" class="center">

@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VSD Quiz — Presentation</title>
 <link rel="stylesheet" href="shared/theme.css">
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // jsdelivr is primary; if it's blocked/unreachable, synchronously fall
+  // back to unpkg before the parser continues to the next script tag.
+  if (typeof supabase === 'undefined') {
+    document.write('<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"><\/script>');
+  }
+</script>
 <style>
   body{overflow:hidden;}
   .stage{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;position:relative;}
@@ -23,10 +30,13 @@
     background:linear-gradient(180deg, rgba(91,42,158,0.35), rgba(19,15,48,0.6));
   }
   .opt-big .tag{width:52px;height:52px;font-size:24px;border-radius:12px;background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#241a10;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:900;flex-shrink:0;}
-  .opt-big.correct{border-color:var(--green);box-shadow:0 0 50px rgba(63,191,106,.5);}
-  .opt-big.wrong{border-color:var(--red);}
+  .opt-big.correct{background:linear-gradient(180deg,#5cdb8f,#2e9c5c);border-color:var(--green);box-shadow:0 0 50px rgba(63,191,106,.5);color:#fff;}
+  .opt-big.correct .tag{background:#fff;color:#1c6b3a;}
+  .opt-big.wrong{background:linear-gradient(180deg,#f16a78,#b3212f);border-color:var(--red);color:#fff;}
+  .opt-big.wrong .tag{background:#fff;color:#8a1622;}
   .opt-big.eliminated{opacity:.12;}
-  .opt-big.selected{border-color:#e8973c;box-shadow:0 0 50px rgba(232,151,60,.5);}
+  .opt-big.selected{background:linear-gradient(180deg,#ffcf8a,#e8973c);border-color:#e8973c;box-shadow:0 0 50px rgba(232,151,60,.5);color:#2a1400;}
+  .opt-big.selected .tag{background:#fff;color:#8a4e10;}
 
   .timer-big{position:absolute;top:36px;right:44px;}
   .timer-big .timer-ring{width:120px;height:120px;font-size:40px;}
@@ -59,6 +69,7 @@
 </head>
 <body>
 <div class="stage" id="stage">
+  <img src="shared/logo.png" alt="logo" style="position:absolute;top:20px;left:36px;height:70px;">
   <div class="logo-badge"><div class="title">KAUN BANEGA GYANI</div><div class="sub">VSD PRABHU POOJA &amp; GURU VANDAN QUIZ</div></div>
   <div id="content" style="margin-top:70px;display:flex;flex-direction:column;align-items:center;">
     <div class="chakra"></div>
@@ -132,7 +143,7 @@ async function render() {
       const r = session.last_result;
       const team = teams.find(t => t.id === r?.team_id);
       const banner = document.createElement('div');
-      banner.className = 'pop-in';
+      banner.className = 'pop-in result-overlay';
       banner.style = 'position:absolute;bottom:60px;background:rgba(10,8,32,.9);padding:16px 32px;border-radius:14px;border:1px solid var(--red);';
       banner.innerHTML = `<span style="color:var(--red);font-weight:800;font-size:22px;">${team?team.team_name:''} WRONG ${r?.points} — PASSING TO NEXT TEAM</span>`;
       document.getElementById('stage').appendChild(banner);
@@ -161,7 +172,7 @@ async function render() {
       content.innerHTML = questionHtml(session.last_result.selected_option, session.last_result.correct_option);
       const team = teams.find(t => t.id === session.last_result.team_id);
       const banner = document.createElement('div');
-      banner.className = 'pop-in';
+      banner.className = 'pop-in result-overlay';
       banner.style = 'position:absolute;bottom:50px;background:rgba(10,8,32,.9);padding:14px 28px;border-radius:14px;border:1px solid var(--gold);';
       banner.innerHTML = `<span style="font-weight:800;font-size:22px;color:${session.last_result.correct?'var(--green)':'var(--red)'}">${team?team.team_name:''} ${session.last_result.correct?'CORRECT':'WRONG'} ${session.last_result.points>0?'+':''}${session.last_result.points} pts</span>`;
       document.getElementById('stage').appendChild(banner);
