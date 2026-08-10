@@ -2,8 +2,8 @@
 // EDIT THESE TWO VALUES for your Supabase project
 // (Project Settings > API > Project URL / anon public key)
 // =====================================================================
-const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+const SUPABASE_URL = 'https://dmhzhncoulmeaeicljpl.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtaHpobmNvdWxtZWFlaWNsanBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyNjk3NjAsImV4cCI6MjEwMTg0NTc2MH0.YTYiA4_cmrIqaCVU_Mb0kBuT9Ox4acFJQZEWYKPSdAs';
 
 if (typeof supabase === 'undefined') {
   document.write('<div style="font-family:sans-serif;background:#3a0d12;color:#fff;padding:16px 22px;">' +
