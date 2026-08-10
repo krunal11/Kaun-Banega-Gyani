@@ -26,7 +26,7 @@
 </head>
 <body>
 <div class="wrap" id="app">
-  <img src="shared/logo.png" alt="logo" style="height:44px;margin-bottom:14px;">
+  <img src="shared/logo.png" alt="logo" style="height:44px;width:auto;align-self:flex-start;margin-bottom:14px;">
   <div class="panel pop-in" style="padding:26px;" id="card">
     <div class="eyebrow center">VSD Quiz · Audience Poll</div>
     <div class="chakra" style="margin:24px auto;"></div>
@@ -77,9 +77,8 @@ async function render() {
     return;
   }
 
-  if (session.state === 'RESULT_REVEAL' && question) {
-    const { data } = await sb.rpc('get_audience_results', { p_question_id: question.id });
-    card.innerHTML = resultsHtml(data);
+  if (session.state === 'RESULT_REVEAL' && session.last_result?.kind === 'AUDIENCE_POLL') {
+    card.innerHTML = resultsHtml(session.last_result.results || []);
     return;
   }
 
@@ -122,6 +121,11 @@ let timerInterval = null;
 function tickAudienceTimer() {
   clearInterval(timerInterval);
   timerInterval = setInterval(async () => {
+    if (session.timer_paused) {
+      const el = document.getElementById('audTimer');
+      if (el) el.textContent = session.timer_remaining_seconds ?? 0;
+      return;
+    }
     const secs = secondsRemaining(session.timer_end);
     const el = document.getElementById('audTimer');
     if (el) el.textContent = secs;

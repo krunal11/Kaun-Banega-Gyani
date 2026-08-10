@@ -70,6 +70,7 @@
 let team = null;
 let session = null;
 let question = null;
+let currentRound = null;
 let buzzChannel = null;
 
 const deviceId = getDeviceId();
@@ -134,16 +135,24 @@ async function render() {
   if (!question || question.id !== session.current_question_id) {
     const { data } = await sb.from('quiz_questions_public').select('*').eq('id', session.current_question_id).single();
     question = data;
+    const { data: r } = await sb.from('quiz_rounds').select('*').eq('id', question.round_id).single();
+    currentRound = r;
   }
 
   if (session.state === 'QUESTION_DISPLAY') {
     content.className = '';
     content.innerHTML = questionCardHtml();
-    if (session.timer_end) {
+    if (session.timer_paused) {
+      content.innerHTML += `<div class="center" style="margin-top:16px;"><div class="timer-ring" id="teamSimpleTimer">${session.timer_remaining_seconds ?? 0}</div>
+        <div class="status-line">Paused — admin will resume shortly.</div></div>`;
+    } else if (session.timer_end) {
       const secs = secondsRemaining(session.timer_end);
       content.innerHTML += `<div class="center" style="margin-top:16px;"><div class="timer-ring ${secs<=5?'urgent':''}" id="teamSimpleTimer">${secs}</div>
         <div class="status-line">Answer verbally — admin will record who answered.</div></div>`;
       tickSimpleTimer();
+    } else {
+      const msg = currentRound && currentRound.has_buzzer ? 'Waiting for buzzer to open…' : 'Get ready…';
+      content.innerHTML += `<div class="status-line" style="margin-top:16px;">${msg}</div>`;
     }
     return;
   }
@@ -214,14 +223,18 @@ function questionCardHtml() {
       <div class="hex-option"><div class="tag">C</div>${q.option_c||''}</div>
       <div class="hex-option"><div class="tag">D</div>${q.option_d||''}</div>
     </div>
-  </div>
-  <div class="status-line">Waiting for buzzer to open…</div>`;
+  </div>`;
 }
 
 let timerInterval = null;
 function tickTeamTimer() {
   clearInterval(timerInterval);
   timerInterval = setInterval(async () => {
+    if (session.timer_paused) {
+      const el = document.getElementById('teamTimer');
+      if (el) el.textContent = session.timer_remaining_seconds ?? 0;
+      return;
+    }
     const secs = secondsRemaining(session.timer_end);
     const el = document.getElementById('teamTimer');
     if (el) { el.textContent = secs; el.className = 'timer-ring ' + (secs<=5?'urgent':''); }
@@ -236,6 +249,11 @@ let simpleTimerInterval = null;
 function tickSimpleTimer() {
   clearInterval(simpleTimerInterval);
   simpleTimerInterval = setInterval(async () => {
+    if (session.timer_paused) {
+      const el = document.getElementById('teamSimpleTimer');
+      if (el) el.textContent = session.timer_remaining_seconds ?? 0;
+      return;
+    }
     const secs = secondsRemaining(session.timer_end);
     const el = document.getElementById('teamSimpleTimer');
     if (el) { el.textContent = secs; el.className = 'timer-ring ' + (secs<=5?'urgent':''); }

@@ -163,9 +163,8 @@ async function render() {
   }
 
   if (session.state === 'RESULT_REVEAL') {
-    if (question.question_type === 'AUDIENCE') {
-      const { data } = await sb.rpc('get_audience_results', { p_question_id: question.id });
-      content.innerHTML = pollResultHtml(data);
+    if (session.last_result?.kind === 'AUDIENCE_POLL') {
+      content.innerHTML = pollResultHtml(session.last_result.results || []);
     } else if (session.last_result?.selected_option) {
       // Manual-select (simple round) flow: show the question with the
       // selected option and the correct option color-coded.
@@ -290,10 +289,16 @@ function leaderboardHtml() {
 function renderTimer(closeRpcName) {
   const t = document.createElement('div');
   t.className = 'timer-big';
-  t.innerHTML = `<div class="timer-ring" id="screenTimer">${secondsRemaining(session.timer_end)}</div>`;
+  const initial = session.timer_paused ? (session.timer_remaining_seconds ?? 0) : secondsRemaining(session.timer_end);
+  t.innerHTML = `<div class="timer-ring" id="screenTimer">${initial}</div>`;
   document.getElementById('stage').appendChild(t);
   clearInterval(window._timerInt);
   window._timerInt = setInterval(async () => {
+    if (session.timer_paused) {
+      const el = document.getElementById('screenTimer');
+      if (el) el.textContent = session.timer_remaining_seconds ?? 0;
+      return; // frozen — don't count down, don't auto-close
+    }
     const secs = secondsRemaining(session.timer_end);
     const el = document.getElementById('screenTimer');
     if (el) { el.textContent = secs; el.className = 'timer-ring ' + (secs<=5?'urgent':''); }

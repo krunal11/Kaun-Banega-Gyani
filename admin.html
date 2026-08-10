@@ -90,7 +90,8 @@
           <div class="row" style="margin-top:14px;">
             <button class="btn btn-gold" onclick="pushQuestion()">SHOW QUESTION</button>
             <button class="btn" id="btnOpenBuzzer" onclick="openBuzzer()">OPEN BUZZER</button>
-            <button class="btn" id="btnStartTimer" style="display:none;" onclick="startSimpleTimer()">START TIMER</button>
+            <button class="btn" id="btnStartTimer" style="display:none;" onclick="startSimpleTimer()">START TIMER (manual restart)</button>
+            <button class="btn btn-gold" id="btnPauseResume" style="display:none;" onclick="pauseOrResumeTimer()">PAUSE TIMER</button>
             <button class="btn btn-outline" onclick="showRoundIntro()">SHOW ROUND RULES</button>
             <button class="btn btn-outline" onclick="showLifelinesIntro()">SHOW LIFELINES</button>
             <button class="btn btn-outline" onclick="dismissIntro()">DISMISS INTRO CARD</button>
@@ -566,13 +567,17 @@ async function addQuestion() {
 
 // ---------- Live control ----------
 function renderControlPanel() {
-  document.getElementById('stateBadge').textContent = session.state;
+  document.getElementById('stateBadge').textContent = session.state + (session.timer_paused ? ' (PAUSED)' : '');
   document.getElementById('answeringCard').style.display = session.state === 'ANSWERING' ? 'block' : 'none';
   if (session.state === 'ANSWERING') {
     const t = teams.find(t => t.id === session.answering_team_id);
     document.getElementById('answeringTeamName').textContent = t ? t.team_name : '—';
     document.getElementById('answeringPos').textContent = session.answering_position;
   }
+  const pauseBtn = document.getElementById('btnPauseResume');
+  const hasRunningOrPausedTimer = session.timer_paused || (session.timer_end && ['BUZZER_OPEN','AUDIENCE_POLL_OPEN','QUESTION_DISPLAY'].includes(session.state));
+  pauseBtn.style.display = hasRunningOrPausedTimer ? '' : 'none';
+  pauseBtn.textContent = session.timer_paused ? 'RESUME TIMER' : 'PAUSE TIMER';
   renderBuzzerOrder();
   renderScoreboard();
 }
@@ -593,12 +598,17 @@ async function openBuzzer() { const { error } = await sb.rpc('open_buzzer', { p_
 // same server-side check that screen.html/team.html/audience.html already do.
 function startTimerWatchdog() {
   setInterval(async () => {
-    if (!session.timer_end) return;
+    if (!session.timer_end || session.timer_paused) return;
     if (new Date(session.timer_end).getTime() > Date.now()) return;
     if (session.state === 'BUZZER_OPEN') await sb.rpc('try_close_buzzer', { p_session_id: session.id });
     else if (session.state === 'AUDIENCE_POLL_OPEN') await sb.rpc('try_close_audience_poll', { p_session_id: session.id });
     else if (session.state === 'QUESTION_DISPLAY') await sb.rpc('try_close_simple_timer', { p_session_id: session.id });
   }, 1000);
+}
+async function pauseOrResumeTimer() {
+  const fn = session.timer_paused ? 'resume_timer' : 'pause_timer';
+  const { error } = await sb.rpc(fn, { p_session_id: session.id });
+  if (error) toast(error.message);
 }
 async function startSimpleTimer() { const { error } = await sb.rpc('start_simple_timer', { p_session_id: session.id }); if (error) toast(error.message); }
 async function recordSimpleAnswer() {
